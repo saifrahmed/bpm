@@ -1,3 +1,10 @@
+*.zip
+*.csv
+*.xml
+*.hl7
+
+
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
