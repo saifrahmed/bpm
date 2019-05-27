@@ -79,21 +79,67 @@ def process_data_files(exportfile, cdafile):
     print("start_date,end_date,observation_time,hr_bpm")
     tree = ET.parse(exportfile)
     root = tree.getroot()  
+
+    # Extract 1
+    # Extract first order HR observations
+    # https://developer.apple.com/documentation/healthkit/hkquantitytypeidentifier/2881127-heartratevariabilitysdnn
+    
+    '''
+     <Record type="HKQuantityTypeIdentifierHeartRate" 
+         sourceName="Saif Ahmed" 
+         sourceVersion="4.0" 
+         device="&lt;&lt;HKDevice: 0x282d50a50&gt;, name:Apple Watch, manufacturer:Apple, model:Watch, hardware:Watch3,4, software:4.0&gt;" 
+         unit="count/min" 
+         creationDate="2017-11-15 00:15:23 -0400" 
+         startDate="2017-11-15 00:13:33 -0400" 
+         endDate="2017-11-15 00:13:33 -0400" 
+         value="76">
+     '''    
+
+    # Extract 2
+    # Extract HR observations from HR Variability SD
+    # https://developer.apple.com/documentation/healthkit/hkquantitytypeidentifier/2881127-heartratevariabilitysdnn
+
+    '''
+     <Record type="HKQuantityTypeIdentifierHeartRateVariabilitySDNN" 
+         sourceName="Saif Ahmed" 
+         sourceVersion="4.1" 
+         device="&lt;&lt;HKDevice: 0x282d8eda0&gt;, name:Apple Watch, manufacturer:Apple, model:Watch, hardware:Watch3,4, software:4.1&gt;" 
+         unit="ms" 
+         creationDate="2017-11-22 19:15:52 -0400" 
+         startDate="2017-11-22 19:14:47 -0400" 
+         endDate="2017-11-22 19:15:52 -0400" 
+         value="32.1111">
+      <HeartRateVariabilityMetadataList>
+       <InstantaneousBeatsPerMinute bpm="95" time="6:14:48.94 PM"/>
+       <InstantaneousBeatsPerMinute bpm="94" time="6:14:49.58 PM"/>
+       <InstantaneousBeatsPerMinute bpm="91" time="6:14:50.24 PM"/>
+       <InstantaneousBeatsPerMinute bpm="93" time="6:14:50.88 PM"/>
+    '''
+
     for child in root.iter():
         #print(child.tag)
         if child.tag == 'Record':
             #print(child.tag)
-            if 'type' in child.attrib and child.attrib['type']=='HKQuantityTypeIdentifierHeartRateVariabilitySDNN':
-                grandchildren = child.iter()
-                for gc in grandchildren:
-                    if gc.tag == 'InstantaneousBeatsPerMinute':
-                        if 'bpm' in gc.attrib:
-                            st = child.attrib['startDate']
-                            ed = child.attrib['endDate']
+            if 'type' in child.attrib:
 
-                            bpm = gc.attrib['bpm']
-                            tm = gc.attrib['time']
-                            print(f"{st},{ed},{tm},{bpm}")
+                if child.attrib['type']=='HKQuantityTypeIdentifierHeartRate':
+                    if 'value' in child.attrib:
+                        st = child.attrib['startDate']
+                        ed = child.attrib['endDate']
+                        bpm = child.attrib['value']
+                        print(f"{st},{ed},,{bpm}")
+
+                elif child.attrib['type']=='HKQuantityTypeIdentifierHeartRateVariabilitySDNN':
+                    grandchildren = child.iter()
+                    for gc in grandchildren:
+                        if gc.tag == 'InstantaneousBeatsPerMinute':
+                            if 'bpm' in gc.attrib:
+                                st = child.attrib['startDate']
+                                ed = child.attrib['endDate']
+                                bpm = gc.attrib['bpm']
+                                tm = gc.attrib['time']
+                                print(f"{st},{ed},{tm},{bpm}")
 
 def main():
 
