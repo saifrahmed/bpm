@@ -5,6 +5,7 @@ import zipfile
 import tempfile
 import logging
 import xml.etree.ElementTree as ET
+from datetime import datetime, date
 
 
 FORMAT = '%(asctime)-15s %(levelname)s %(message)s'
@@ -128,19 +129,38 @@ def process_data_files(exportfile, cdafile):
                         st = child.attrib['startDate']
                         ed = child.attrib['endDate']
                         bpm = child.attrib['value']
-                        print(f"{st},{ed},,{bpm}")
+                        #print(f"{st},{ed},,{bpm}")
+                        print(f"{st},{bpm}")
 
                 elif child.attrib['type']=='HKQuantityTypeIdentifierHeartRateVariabilitySDNN':
+
+                    seq_st = child.attrib['startDate']
+                    seq_ed = child.attrib['endDate']
+
+                    seq_st_dt = datetime.strptime(seq_st, '%Y-%m-%d %H:%M:%S %z')
+
                     grandchildren = child.iter()
+                    obs_first = None
                     for gc in grandchildren:
                         if gc.tag == 'InstantaneousBeatsPerMinute':
+                            if not obs_first:
+                                obs_first = gc.attrib['time']
+                                st_dt = datetime.strptime(obs_first, '%H:%M:%S.%f %p')
+                            
                             if 'bpm' in gc.attrib:
-                                st = child.attrib['startDate']
-                                ed = child.attrib['endDate']
                                 bpm = gc.attrib['bpm']
-                                tm = gc.attrib['time']
-                                print(f"{st},{ed},{tm},{bpm}")
 
+                                # Derive elapsed time offset within observation series
+                                tm = gc.attrib['time']
+                                ed_dt = datetime.strptime(tm, '%H:%M:%S.%f %p')
+                                time_offset = datetime.combine(date.min, ed_dt.time()) - datetime.combine(date.min, st_dt.time())
+
+                                # Apply elapsed time offset to sequence start time
+                                seq_st_dt_plusdelta = seq_st_dt+time_offset
+
+                                print(f"{seq_st_dt_plusdelta},{bpm}")
+                                #print(f"{st},{ed},{time_offset},{bpm}")
+                                #print(f"{seq_st},{seq_ed},{tm},{time_offset},{seq_st_dt_plusdelta},{bpm}")
 def main():
 
     parser = argparse.ArgumentParser()
