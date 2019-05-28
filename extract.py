@@ -3,6 +3,7 @@ import os
 import argparse 
 import zipfile
 import tempfile
+import random
 import logging
 import xml.etree.ElementTree as ET
 from datetime import datetime, date
@@ -13,66 +14,6 @@ logging.basicConfig(format=FORMAT)
 logger = logging.getLogger('apple_health')
 logger.setLevel(logging.DEBUG)
 
-
-def find_data_files(infile, indir):
-    if infile and indir:
-        logger.error("Cannot have both an input file to extract and also a ready-extracted data dir")
-        raise Exception("Cannot have both an input file to extract and also a ready-extracted data dir")
-
-    if infile:
-        if not (os.path.exists(input_file)):
-            logger.error(f"Bad input file received {input_file}")
-            raise Exception(f"Bad input file received {input_file}")
-
-        if (os.path.isdir(input_file)):
-            # we didnt get an exact file input, lets look for the expected name
-            input_file = os.path.join(input_file, "export.zip")
-
-            # is it actually there?
-            if not (os.path.exists(input_file)):
-                raise Exception(f"Received input directory, but expected input file {input_file} not found")        
-
-
-        with tempfile.TemporaryDirectory() as tarball_contents:
-            logger.info(f"Working in folder {tarball_contents}")
-            zip_ref = zipfile.ZipFile(input_file, 'r')
-            zip_ref.extractall(tarball_contents)
-            zip_ref.close()
-            keyfile1 = os.path.join(tarball_contents, "apple_health_export", "export_cda.xml")
-            keyfile2 = os.path.join(tarball_contents, "apple_health_export", "export.xml")
-
-            if not (os.path.exists(keyfile1)):
-                logger.error(f"Bad input file received, missing key file export_cda.xml")            
-                raise Exception(f"Bad input file received, missing key file export_cda.xml")
-
-            if not (os.path.exists(keyfile2)):
-                logger.error(f"Bad input file received, missing key file export.xml")
-                raise Exception(f"Bad input file received, missing key file export.xml")
-
-            return keyfile2, keyfile1
-
-
-    if indir:
-        if not (os.path.exists(indir)):
-            logger.error(f"Bad input file received {indir}")            
-            raise Exception(f"Bad input file received {indir}")
-
-        if not (os.path.isdir(indir)):
-            logger.error(f"Received non-existent input directory {indir}")            
-            raise Exception(f"Received non-existent input directory {indir}")        
-
-        keyfile1 = os.path.join(indir, "export_cda.xml")
-        keyfile2 = os.path.join(indir, "export.xml")
-
-        if not (os.path.exists(keyfile1)):
-            logger.error(f"Bad input file received, missing key file export_cda.xml")            
-            raise Exception(f"Bad input file received, missing key file export_cda.xml")
-
-        if not (os.path.exists(keyfile2)):
-            logger.error(f"Bad input file received, missing key file export.xml")
-            raise Exception(f"Bad input file received, missing key file export.xml")
-
-        return keyfile2, keyfile1        
 
 def process_data_files(exportfile, cdafile):
     logger.info(f"Processing Export File {exportfile}")
@@ -161,6 +102,82 @@ def process_data_files(exportfile, cdafile):
                                 print(f"{seq_st_dt_plusdelta},{bpm}")
                                 #print(f"{st},{ed},{time_offset},{bpm}")
                                 #print(f"{seq_st},{seq_ed},{tm},{time_offset},{seq_st_dt_plusdelta},{bpm}")
+    return True
+
+def prep_and_process_files(infile, indir):
+    if infile and indir:
+        logger.error("Cannot have both an input file to extract and also a ready-extracted data dir")
+        raise Exception("Cannot have both an input file to extract and also a ready-extracted data dir")
+
+    if infile:
+        if not (os.path.exists(infile)):
+            logger.error(f"Bad input file received {infile}")
+            raise Exception(f"Bad input file received {infile}")
+
+        input_file = infile
+        if (os.path.isdir(infile)):
+            # we didnt get an exact file input, lets look for the expected name
+            input_file = os.path.join(input_file, "export.zip")
+
+        # is it actually there?
+        if not (os.path.exists(input_file)):
+            raise Exception(f"Received input directory, but expected input file {input_file} not found")        
+
+
+        with tempfile.TemporaryDirectory() as tempdir_tarball_contents:
+
+            randomizer = str(random.randint(10000, 99999))
+            extract_dir = os.path.join(tempdir_tarball_contents, randomizer)
+            os.mkdir(extract_dir)
+
+            logger.info(f"Working in folder {extract_dir}")
+            zip_ref = zipfile.ZipFile(input_file, 'r')
+            zip_ref.extractall(extract_dir)
+            zip_ref.close()
+
+            import glob
+            extracted_files = glob.glob(os.path.join(extract_dir, 'apple_health_export', '*'))
+            logger.info("Files extracted during preparation:")
+            for ef in extracted_files:
+                logger.info(f"\tFile: {ef}")
+
+
+            keyfile1 = os.path.join(extract_dir, "apple_health_export", "export_cda.xml")
+            keyfile2 = os.path.join(extract_dir, "apple_health_export", "export.xml")
+
+            if not (os.path.exists(keyfile1)):
+                logger.error(f"Bad input file received, missing key file export_cda.xml")            
+                raise Exception(f"Bad input file received, missing key file export_cda.xml")
+
+            if not (os.path.exists(keyfile2)):
+                logger.error(f"Bad input file received, missing key file export.xml")
+                raise Exception(f"Bad input file received, missing key file export.xml")
+
+            return process_data_files(keyfile2, keyfile1)
+
+
+    if indir:
+        if not (os.path.exists(indir)):
+            logger.error(f"Bad input file received {indir}")            
+            raise Exception(f"Bad input file received {indir}")
+
+        if not (os.path.isdir(indir)):
+            logger.error(f"Received non-existent input directory {indir}")            
+            raise Exception(f"Received non-existent input directory {indir}")        
+
+        keyfile1 = os.path.join(indir, "export_cda.xml")
+        keyfile2 = os.path.join(indir, "export.xml")
+
+        if not (os.path.exists(keyfile1)):
+            logger.error(f"Bad input file received, missing key file export_cda.xml")            
+            raise Exception(f"Bad input file received, missing key file export_cda.xml")
+
+        if not (os.path.exists(keyfile2)):
+            logger.error(f"Bad input file received, missing key file export.xml")
+            raise Exception(f"Bad input file received, missing key file export.xml")
+
+        return process_data_files(keyfile2, keyfile1)
+
 def main():
 
     parser = argparse.ArgumentParser()
@@ -180,11 +197,30 @@ def main():
         data_dir = args.datadir
         logger.info(f"Path to readily available data: {data_dir}")
 
-    exportfile, cdafile = find_data_files(input_file, data_dir)
-    process_data_files(exportfile, cdafile)
-
-
-
+    prep_and_process_files(input_file, data_dir)
   
 if __name__== "__main__":
+
+
+
+    headline = r"""
+                           _        _    _            _ _   _              
+         /\               | |      | |  | |          | | | | |             
+        /  \   _ __  _ __ | | ___  | |__| | ___  __ _| | |_| |__           
+       / /\ \ | '_ \| '_ \| |/ _ \ |  __  |/ _ \/ _` | | __| '_ \          
+      / ____ \| |_) | |_) | |  __/ | |  | |  __| (_| | | |_| | | |         
+     /_/___ \_| .__/| .__/|_|\___|_|_|  |_|\___|\__,_|_|\__|_| |_|         
+     |  __ \  | | | | |      |  ____|    | |                | |            
+     | |  | | |_|_| |_|__ _  | |__  __  _| |_ _ __ __ _  ___| |_ ___  _ __ 
+     | |  | |/ _` | __/ _` | |  __| \ \/ | __| '__/ _` |/ __| __/ _ \| '__|
+     | |__| | (_| | || (_| | | |____ >  <| |_| | | (_| | (__| || (_) | |   
+     |_____/ \__,_|\__\__,_| |______/_/\_\\__|_|  \__,_|\___|\__\___/|_|   
+                                                                           
+    """   
+
+    print()
+    print(headline)
+    print("(c) 2019 Saif Ahmed")
+    print()                                                                    
+
     main()
